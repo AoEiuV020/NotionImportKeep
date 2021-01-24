@@ -4,7 +4,7 @@ from datetime import datetime
 from random import choice
 from uuid import uuid1
 
-from notion.block import TextBlock
+from notion.block import TextBlock, ImageBlock
 from notion.collection import Collection
 
 
@@ -52,6 +52,29 @@ def import_keep_row(client, co, row, jmap, sha256):
         row.sha256 = sha256
     print('set text content len', len(jmap['textContent']))
     assert row.children.add_new(TextBlock, title=jmap['textContent'])
+
+
+def import_keep_cover(row, real_path, jmap):
+    img = None
+    # noinspection PyBroadException
+    try:
+        img = jmap['attachments'][0]['filePath']
+    except Exception:
+        pass
+    if img is not None:
+        print('add image', repr(img))
+        img_full_path = os.path.join(real_path, img)
+        if not os.path.exists(img_full_path):
+            print('image not found', repr(img_full_path))
+            img_list = glob.glob1(real_path, os.path.splitext(img)[0] + '*')
+            if len(img_list):
+                img_full_path = os.path.join(real_path, img_list[0])
+                print('real image found', img_full_path)
+        if os.path.exists(img_full_path):
+            print('create image', img_full_path)
+            # 只能是ImageBlock，上传的图片地址设置为封面会失效，
+            ib = row.children.add_new(ImageBlock)
+            ib.upload_file(img_full_path)
 
 
 def get_default_schema():
