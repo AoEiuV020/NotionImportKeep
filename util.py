@@ -10,7 +10,7 @@ from notion.collection import Collection
 
 def create_collection(client, name) -> Collection:
     cp = client.current_space.add_page(name)
-    print('create block', cp.id)
+    print('created block id', cp.id)
     cp.type = 'collection_view_page'
     cap = client.get_block(cp.id)
     cr = client.create_record('collection', parent=cap, schema=get_default_schema())

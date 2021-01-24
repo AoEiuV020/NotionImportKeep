@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 import hashlib
 import json
 import os
@@ -13,17 +15,19 @@ name = 'Google Keep'
 if os.path.exists('local.py'):
     exec(open('local.py').read())
 if token is None:
-    token = input('please input notion cookie token_v2')
+    token = input('please input notion cookie token_v2,')
 if path is None:
-    path = input('please input google keep takeout path contains json files')
+    path = input('please input google keep takeout path contains json files,')
+if block is None:
+    block = input('please input notion database block id, press enter for auto create,')
 
 print('token is', repr(token))
 print('path is', repr(path))
 real_path, list_file = util.list_google_keep_json_file(path)
 print('json file count', repr(len(list_file)))
 client = NotionClient(token_v2=token)
-if block is None:
-    print('create database', name)
+if not block:
+    print('create block name', name)
     co = util.create_collection(client, name)
 else:
     print('get database', block)
