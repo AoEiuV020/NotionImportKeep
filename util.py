@@ -34,24 +34,38 @@ def list_google_keep_json_file(path):
 
 
 def import_keep_row(client, co, row, jmap, sha256):
-    # 不能在事务里创建记录和block，有点弱了，
-    with client.as_atomic_transaction():
-        for key in ['title', 'isTrashed', 'isPinned', 'isArchived']:
-            print('set property', key, '=', jmap[key])
-            row.__setattr__(key, jmap[key])
-        modify_time = datetime.fromtimestamp(jmap['userEditedTimestampUsec'] / 1000 / 1000)
-        print('set userEditedTimestampUsec', '=', modify_time)
-        row.userEditedTimestampUsec = modify_time
-        label_list = list(o['name'] for o in jmap['labels'])
-        print('set labels', '=', label_list)
-        for label in label_list:
-            if create_label(co, label):
-                print('create label', repr(label))
-        row.labels = label_list
-        print('set sha256', '=', sha256)
-        row.sha256 = sha256
-    print('set text content len', len(jmap['textContent']))
-    assert row.children.add_new(TextBlock, title=jmap['textContent'])
+    if row.sha256 == sha256:
+        print('skip row properties')
+    else:
+        # 不能在事务里创建记录和block，有点弱了，
+        with client.as_atomic_transaction():
+            for key in ['title', 'isTrashed', 'isPinned', 'isArchived']:
+                print('set property', key, '=', jmap[key])
+                row.__setattr__(key, jmap[key])
+            modify_time = datetime.fromtimestamp(jmap['userEditedTimestampUsec'] / 1000 / 1000)
+            print('set userEditedTimestampUsec', '=', modify_time)
+            row.userEditedTimestampUsec = modify_time
+            label_list = list(o['name'] for o in jmap['labels'])
+            print('set labels', '=', label_list)
+            for label in label_list:
+                if create_label(co, label):
+                    print('create label', repr(label))
+            row.labels = label_list
+            print('set sha256', '=', sha256)
+            row.sha256 = sha256
+    text_content = jmap['textContent']
+    children = row.children
+    if len(children) and isinstance(children[0], TextBlock) and children[0].title == text_content:
+        print('skip text content')
+    else:
+        if len(children) and isinstance(children[0], TextBlock):
+            print('remove old text block', children[0].title)
+            children[0].remove()
+        print('set text content len', len(text_content))
+        rb = row.children.add_new(TextBlock, title=text_content)
+        assert rb
+        # 已有图片的情况插入的文本移动到开头，用move_to是因为不支持插入指定位置，
+        rb.move_to(row, 'first-child')
 
 
 def import_keep_cover(row, real_path, jmap):
@@ -71,10 +85,22 @@ def import_keep_cover(row, real_path, jmap):
                 img_full_path = os.path.join(real_path, img_list[0])
                 print('real image found', img_full_path)
         if os.path.exists(img_full_path):
-            print('create image', img_full_path)
-            # 只能是ImageBlock，上传的图片地址设置为封面会失效，
-            ib = row.children.add_new(ImageBlock)
-            ib.upload_file(img_full_path)
+            children = row.children
+            if len(children) > 1 and \
+                    isinstance(children[1], ImageBlock) and \
+                    os.path.split(img_full_path)[1] in children[1].source:
+                print('skip image')
+            else:
+                if len(children) > 1 and isinstance(children[1], ImageBlock):
+                    print('remove old image block', children[1].source)
+                    children[1].remove()
+                print('create image', img_full_path)
+                # 只能是ImageBlock，上传的图片地址设置为封面会失效，
+                ib = row.children.add_new(ImageBlock)
+                assert ib
+                ib.upload_file(img_full_path)
+                if len(children) > 1:
+                    ib.move_to(children[0], 'after')
 
 
 def get_default_schema():
