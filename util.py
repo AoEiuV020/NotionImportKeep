@@ -1,8 +1,10 @@
 import glob
 import os
+from datetime import datetime
 from random import choice
 from uuid import uuid1
 
+from notion.block import TextBlock
 from notion.collection import Collection
 
 
@@ -31,8 +33,25 @@ def list_google_keep_json_file(path):
     return real_path, glob.glob1(real_path, '*.json')
 
 
-def parent_path(path):
-    return os.path.abspath(os.path.join(path, os.pardir))
+def import_keep_row(client, co, row, jmap, sha256):
+    with client.as_atomic_transaction():
+        for key in ['title', 'isTrashed', 'isPinned', 'isArchived']:
+            print('set property', key, '=', jmap[key])
+            row.__setattr__(key, jmap[key])
+        modify_time = datetime.fromtimestamp(jmap['userEditedTimestampUsec'] / 1000 / 1000)
+        print('set userEditedTimestampUsec', '=', modify_time)
+        row.userEditedTimestampUsec = modify_time
+        label_list = list(o['name'] for o in jmap['labels'])
+        print('set labels', '=', label_list)
+        for label in label_list:
+            if create_label(co, label):
+                print('create label', repr(label))
+        row.labels = label_list
+        print('set sha256', '=', sha256)
+        row.sha256 = sha256
+        print('set text content', jmap['textContent'])
+    # 不能在事务里创建block，有点弱了，
+    row.children.add_new(TextBlock, title=jmap['textContent'])
 
 
 def get_default_schema():
