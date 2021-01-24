@@ -34,6 +34,7 @@ def list_google_keep_json_file(path):
 
 
 def import_keep_row(client, co, row, jmap, sha256):
+    # 不能在事务里创建记录和block，有点弱了，
     with client.as_atomic_transaction():
         for key in ['title', 'isTrashed', 'isPinned', 'isArchived']:
             print('set property', key, '=', jmap[key])
@@ -49,9 +50,8 @@ def import_keep_row(client, co, row, jmap, sha256):
         row.labels = label_list
         print('set sha256', '=', sha256)
         row.sha256 = sha256
-        print('set text content', jmap['textContent'])
-    # 不能在事务里创建block，有点弱了，
-    row.children.add_new(TextBlock, title=jmap['textContent'])
+    print('set text content len', len(jmap['textContent']))
+    assert row.children.add_new(TextBlock, title=jmap['textContent'])
 
 
 def get_default_schema():
