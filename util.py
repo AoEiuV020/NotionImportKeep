@@ -45,7 +45,10 @@ def import_keep_row(client, co, row, jmap, sha256):
             modify_time = datetime.fromtimestamp(jmap['userEditedTimestampUsec'] / 1000 / 1000)
             print('set userEditedTimestampUsec', '=', modify_time)
             row.userEditedTimestampUsec = modify_time
-            label_list = list(o['name'] for o in jmap['labels'])
+            try:
+                label_list = list(o['name'] for o in jmap['labels'])
+            except Exception:
+                label_list = []
             print('set labels', '=', label_list)
             for label in label_list:
                 if create_label(co, label):
