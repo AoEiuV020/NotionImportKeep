@@ -11,8 +11,8 @@
 指定同一个block导入时会自动跳过已经上传了的记事，
 
 ```shell
-pip install setuptools
-pip install notion
+pip3 install setuptools
+pip3 install notion
 python3 main.py
 ```
 
