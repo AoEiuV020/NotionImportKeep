@@ -10,6 +10,11 @@
 导入过程很容易因为网络问题停止，所以支持指定block id，用于断点续传，  
 指定同一个block导入时会自动跳过已经上传了的记事，
 
+# TODO
+1. 复选框支持，
+2. 录音支持，
+3. 计时，
+
 ```shell
 pip3 install setuptools
 pip3 install notion
