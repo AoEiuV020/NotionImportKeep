@@ -34,7 +34,7 @@ else:
     co = client.get_block(block).collection
 
 for json_name in list_file:
-    json_content = open(os.path.join(real_path, json_name), 'rb').read()
+    json_content = open(os.path.join(folder, json_name), 'rb').read()
     sha256 = hashlib.sha256(json_content).hexdigest()
     print('import note from', repr(json_name), 'sha256', repr(sha256))
     jmap = json.loads(str(json_content, encoding='utf-8'))
