@@ -45,6 +45,7 @@ def import_keep_row(client, co, row, jmap, sha256):
             modify_time = datetime.fromtimestamp(jmap['userEditedTimestampUsec'] / 1000 / 1000)
             print('set userEditedTimestampUsec', '=', modify_time)
             row.userEditedTimestampUsec = modify_time
+            # noinspection PyBroadException
             try:
                 label_list = list(o['name'] for o in jmap['labels'])
             except Exception:
@@ -56,7 +57,15 @@ def import_keep_row(client, co, row, jmap, sha256):
             row.labels = label_list
             print('set sha256', '=', sha256)
             row.sha256 = sha256
-    text_content = jmap['textContent']
+
+
+def import_text_content(row, jmap):
+    # noinspection PyBroadException
+    try:
+        text_content = jmap['textContent']
+    except Exception:
+        print('empty text content')
+        return
     children = row.children
     if len(children) and isinstance(children[0], TextBlock) and children[0].title == text_content:
         print('skip text content')
