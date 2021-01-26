@@ -63,19 +63,19 @@ def import_keep_row(client, co, row, jmap, sha256):
 def import_text_content(row, jmap):
     if 'textContent' not in jmap:
         return
-    text_content = jmap['textContent'].strip()
+    text_content = jmap['textContent']
     if not text_content:
         print('empty text content')
         return
     children = row.children
-    if len(children) and isinstance(children[0], TextBlock) and children[0].title == text_content:
+    if len(children) and isinstance(children[0], TextBlock) and children[0].title_plaintext == text_content:
         print('skip text content')
     else:
         if len(children) and isinstance(children[0], TextBlock):
-            print('remove old text block', children[0].title)
+            print('remove old text block len', len(children[0].title_plaintext))
             children[0].remove()
         print('set text content len', len(text_content))
-        rb = row.children.add_new(TextBlock, title=text_content)
+        rb = row.children.add_new(TextBlock, title_plaintext=text_content, language='Plain Text')
         assert rb
         # 已有图片的情况插入的文本移动到开头，用move_to是因为不支持插入指定位置，
         rb.move_to(row, 'first-child')
