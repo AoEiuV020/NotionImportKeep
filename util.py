@@ -4,7 +4,7 @@ from datetime import datetime
 from random import choice
 from uuid import uuid1
 
-from notion.block import TextBlock, ImageBlock
+from notion.block import TextBlock, ImageBlock, TodoBlock
 from notion.collection import Collection
 
 
@@ -98,21 +98,55 @@ def import_keep_cover(row, real_path, jmap):
                 print('real image found', img_full_path)
         if os.path.exists(img_full_path):
             children = row.children
-            if len(children) > 1 and \
-                    isinstance(children[1], ImageBlock) and \
-                    os.path.split(img_full_path)[1] in children[1].source:
+            index = 1 if len(children) > 0 and isinstance(children[0], TextBlock) else 0
+            if len(children) > index and \
+                    isinstance(children[index], ImageBlock) and \
+                    os.path.split(img_full_path)[1] in children[index].source:
                 print('skip image')
             else:
-                if len(children) > 1 and isinstance(children[1], ImageBlock):
-                    print('remove old image block', children[1].source)
-                    children[1].remove()
+                if len(children) > index and isinstance(children[index], ImageBlock):
+                    print('remove old image block', children[index].source)
+                    children[index].remove()
                 print('create image', img_full_path)
                 # 只能是ImageBlock，上传的图片地址设置为封面会失效，
                 ib = row.children.add_new(ImageBlock)
                 assert ib
                 ib.upload_file(img_full_path)
-                if len(children) > 1:
-                    ib.move_to(children[0], 'after')
+                # 只能插入末尾再移动，
+                if len(children) > index and children[index].source != ib.source:
+                    if index == 0:
+                        ib.move_to(row, 'first-child')
+                    else:
+                        ib.move_to(children[index - 1], 'after')
+
+
+def import_list_content(row, jmap):
+    # noinspection PyBroadException
+    try:
+        list_content = jmap['listContent']
+    except Exception:
+        print('empty list content')
+        return
+    children = row.children
+    index = 0
+    if len(children) > index and not isinstance(children[index], TodoBlock):
+        index += 1
+        if len(children) > index and not isinstance(children[index], TodoBlock):
+            index += 1
+    for i, cb in enumerate(list_content):
+        real_index = index + i
+        # 判断如果数据对不上，后续的子节点全部清空，
+        while len(children) > real_index \
+                and (not isinstance(children[real_index], TodoBlock)
+                     or children[real_index].title != cb['text']
+                     or children[real_index].checked != cb['isChecked']):
+            print('remove child', children[real_index])
+            children[real_index].remove()
+        if len(children) == real_index:
+            print('add checkbox, title', cb['text'], 'checked', cb['isChecked'])
+            assert children.add_new(TodoBlock, title=cb['text'], checked=cb['isChecked'])
+        else:
+            print('skip checkbox, title', cb['text'], 'checked', cb['isChecked'])
 
 
 def get_default_schema():

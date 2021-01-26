@@ -48,4 +48,5 @@ for json_name in list_file:
     util.import_keep_row(client, co, row, jmap, sha256)
     util.import_text_content(row, jmap)
     util.import_keep_cover(row, real_path, jmap)
+    util.import_list_content(row, jmap)
     print('ok', repr(json_name), 'sha256', repr(sha256))

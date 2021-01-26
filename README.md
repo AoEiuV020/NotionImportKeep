@@ -14,9 +14,7 @@
 提醒会当成普通记事被导入，
 
 # TODO
-
-1. 复选框支持，
-2. 录音支持，
+1. 录音支持，
 
 ```shell
 pip3 install setuptools
