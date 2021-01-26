@@ -13,7 +13,6 @@
 # TODO
 1. 复选框支持，
 2. 录音支持，
-3. 计时，
 
 ```shell
 pip3 install setuptools
