@@ -61,10 +61,10 @@ def import_keep_row(client, co, row, jmap, sha256):
 
 
 def import_text_content(row, jmap):
-    # noinspection PyBroadException
-    try:
-        text_content = jmap['textContent']
-    except Exception:
+    if 'textContent' not in jmap:
+        return
+    text_content = jmap['textContent'].strip()
+    if not text_content:
         print('empty text content')
         return
     children = row.children
