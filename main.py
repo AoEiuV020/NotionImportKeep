@@ -23,7 +23,7 @@ if block is None:
 
 print('token is', repr(token))
 print('path is', repr(path))
-real_path, list_file = util.list_google_keep_json_file(path)
+folder, list_file = util.list_google_keep_json_file(path)
 print('json file count', repr(len(list_file)))
 client = NotionClient(token_v2=token)
 if not block:
@@ -47,6 +47,6 @@ for json_name in list_file:
         row = co.add_row()
     util.import_keep_row(client, co, row, jmap, sha256)
     util.import_text_content(row, jmap)
-    util.import_keep_cover(row, real_path, jmap)
+    util.import_attachments(row, folder, jmap)
     util.import_list_content(row, jmap)
     print('ok', repr(json_name), 'sha256', repr(sha256))

@@ -4,7 +4,7 @@ from datetime import datetime
 from random import choice
 from uuid import uuid1
 
-from notion.block import TextBlock, ImageBlock, TodoBlock
+from notion.block import TextBlock, ImageBlock, TodoBlock, AudioBlock
 from notion.collection import Collection
 
 
@@ -25,12 +25,12 @@ def list_google_keep_json_file(path):
     json_list = glob.glob1(path, '*.json')
     if len(json_list) != 0:
         return path, json_list
-    real_path = os.path.join(path, 'Google Keep')
-    if not os.path.exists(real_path):
-        real_path = os.path.join(path, 'Takeout', 'Google Keep')
-    if not os.path.exists(real_path):
+    folder = os.path.join(path, 'Google Keep')
+    if not os.path.exists(folder):
+        folder = os.path.join(path, 'Takeout', 'Google Keep')
+    if not os.path.exists(folder):
         return path, []
-    return real_path, glob.glob1(real_path, '*.json')
+    return folder, glob.glob1(folder, '*.json')
 
 
 def import_keep_row(client, co, row, jmap, sha256):
@@ -54,7 +54,8 @@ def import_keep_row(client, co, row, jmap, sha256):
             for label in label_list:
                 if create_label(co, label):
                     print('create label', repr(label))
-            row.labels = label_list
+            if label_list:
+                row.labels = label_list
             print('set sha256', '=', sha256)
             row.sha256 = sha256
 
@@ -80,44 +81,53 @@ def import_text_content(row, jmap):
         rb.move_to(row, 'first-child')
 
 
-def import_keep_cover(row, real_path, jmap):
-    img = None
-    # noinspection PyBroadException
-    try:
-        img = jmap['attachments'][0]['filePath']
-    except Exception:
-        pass
-    if img is not None:
-        print('add image', repr(img))
-        img_full_path = os.path.join(real_path, img)
-        if not os.path.exists(img_full_path):
-            print('image not found', repr(img_full_path))
-            img_list = glob.glob1(real_path, os.path.splitext(img)[0] + '*')
+def import_attachments(row, folder, jmap):
+    if 'attachments' not in jmap:
+        return
+    children = row.children
+    index = 0
+    if len(children) > index and isinstance(children[index], TextBlock):
+        index += 1
+    for i, res in enumerate(jmap['attachments']):
+        real_index = index + i
+        file_path = res['filePath']
+        assert file_path
+        mime_type = res['mimetype']
+        assert '/' in mime_type
+        file_type = mime_type.split('/')[0]
+        assert file_type
+        if file_type == 'image':
+            block_type = ImageBlock
+        elif file_type == 'audio':
+            block_type = AudioBlock
+        else:
+            print('skip attachment not supported file_type', file_type, 'file_path', file_path)
+            continue
+        full_path = os.path.join(folder, file_path)
+        if not os.path.exists(full_path):
+            print(file_type, 'not found', repr(full_path))
+            img_list = glob.glob1(folder, os.path.splitext(file_path)[0] + '*')
             if len(img_list):
-                img_full_path = os.path.join(real_path, img_list[0])
-                print('real image found', img_full_path)
-        if os.path.exists(img_full_path):
-            children = row.children
-            index = 1 if len(children) > 0 and isinstance(children[0], TextBlock) else 0
-            if len(children) > index and \
-                    isinstance(children[index], ImageBlock) and \
-                    os.path.split(img_full_path)[1] in children[index].source:
-                print('skip image')
+                full_path = os.path.join(folder, img_list[0])
+                print('real', file_type, 'found', full_path)
             else:
-                if len(children) > index and isinstance(children[index], ImageBlock):
-                    print('remove old image block', children[index].source)
-                    children[index].remove()
-                print('create image', img_full_path)
-                # 只能是ImageBlock，上传的图片地址设置为封面会失效，
-                ib = row.children.add_new(ImageBlock)
-                assert ib
-                ib.upload_file(img_full_path)
-                # 只能插入末尾再移动，
-                if len(children) > index and children[index].source != ib.source:
-                    if index == 0:
-                        ib.move_to(row, 'first-child')
-                    else:
-                        ib.move_to(children[index - 1], 'after')
+                print('skip attachment not found', file_type, 'file_path', file_path)
+                continue
+        file_name = os.path.split(full_path)[1]
+        # 判断如果数据对不上，后续的子节点全部清空，
+        while len(children) > real_index \
+                and (not isinstance(children[real_index], block_type)
+                     or file_name not in children[index].source):
+            print('remove child', children[real_index])
+            children[real_index].remove()
+        if len(children) == real_index:
+            print('create', file_type, full_path)
+            ib = row.children.add_new(block_type)
+            assert ib
+            print('upload', file_type, full_path)
+            ib.upload_file(full_path)
+        else:
+            print('skip', file_type, full_path)
 
 
 def import_list_content(row, jmap):
@@ -143,10 +153,10 @@ def import_list_content(row, jmap):
             print('remove child', children[real_index])
             children[real_index].remove()
         if len(children) == real_index:
-            print('add checkbox, title', cb['text'], 'checked', cb['isChecked'])
+            print('create checkbox, title', repr(cb['text']), 'checked', repr(cb['isChecked']))
             assert children.add_new(TodoBlock, title=cb['text'], checked=cb['isChecked'])
         else:
-            print('skip checkbox, title', cb['text'], 'checked', cb['isChecked'])
+            print('skip checkbox, title', repr(cb['text']), 'checked', repr(cb['isChecked']))
 
 
 def get_default_schema():
