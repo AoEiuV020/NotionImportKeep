@@ -15,6 +15,7 @@
 
 # TODO
 1. 录音支持，
+2. 收尾删除空白记事，
 
 ```shell
 pip3 install setuptools
