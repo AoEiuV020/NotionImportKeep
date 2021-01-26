@@ -21,6 +21,7 @@
 # TODO
 
 1. 收尾删除空白记事，
+2. 添加每个label为一个view,
 
 ```shell
 pip3 install setuptools
