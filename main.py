@@ -14,7 +14,7 @@ from util import logger
 token = None
 path = None
 block = None
-thread_count = 30
+thread_count = 4
 name = 'Google Keep'
 if os.path.exists('local.py'):
     exec(open('local.py').read())
