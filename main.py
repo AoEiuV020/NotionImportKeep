@@ -8,10 +8,13 @@ from notion.client import NotionClient
 from requests.packages.urllib3.util.retry import Retry
 
 import util
+from blocking_executor import BlockingExecutor
+from util import logger
 
 token = None
 path = None
 block = None
+thread_count = 30
 name = 'Google Keep'
 if os.path.exists('local.py'):
     exec(open('local.py').read())
@@ -22,10 +25,10 @@ if path is None:
 if block is None:
     block = input('please input notion database block id, press enter for auto create,')
 
-print('token is', repr(token))
-print('path is', repr(path))
+logger('token is', repr(token))
+logger('path is', repr(path))
 folder, list_file = util.list_google_keep_json_file(path)
-print('json file count', repr(len(list_file)))
+logger('json file count', repr(len(list_file)))
 retry = Retry(
     5,
     backoff_factor=0.3,
@@ -34,26 +37,33 @@ retry = Retry(
 )
 client = NotionClient(token_v2=token, client_specified_retry=retry)
 if not block:
-    print('create block name', name)
+    logger('create block name', name)
     co = util.create_collection(client, name)
 else:
-    print('get database', block)
+    logger('get database', block)
     co = client.get_block(block).collection
 
-for json_name in list_file:
+
+def import_keep_row(json_name):
     json_content = open(os.path.join(folder, json_name), 'rb').read()
     sha256 = hashlib.sha256(json_content).hexdigest()
-    print('import note from', repr(json_name), 'sha256', repr(sha256))
+    logger('import note from', repr(json_name), 'sha256', repr(sha256))
     jmap = json.loads(str(json_content, encoding='utf-8'))
     exists_rows = co.get_rows(search=sha256)
     if len(exists_rows):
-        print('exists row')
+        logger('exists row')
         row = exists_rows[0]
     else:
-        print('create row')
+        logger('create row')
         row = co.add_row()
     util.import_keep_row(client, co, row, jmap, sha256)
     util.import_text_content(row, jmap)
     util.import_attachments(row, folder, jmap)
     util.import_list_content(row, jmap)
-    print('ok', repr(json_name), 'sha256', repr(sha256))
+    logger('ok', repr(json_name), 'sha256', repr(sha256))
+
+
+executor = BlockingExecutor(thread_count, 1)
+for json_name in list_file:
+    executor.submit(import_keep_row, json_name)
+executor.shutdown()

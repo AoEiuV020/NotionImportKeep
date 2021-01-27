@@ -1,5 +1,6 @@
 import glob
 import os
+import threading
 from datetime import datetime
 from random import choice
 from uuid import uuid1
@@ -8,9 +9,13 @@ from notion.block import TextBlock, ImageBlock, TodoBlock, AudioBlock
 from notion.collection import Collection
 
 
+def logger(*args):
+    print(threading.current_thread().name, *args)
+
+
 def create_collection(client, name) -> Collection:
     cp = client.current_space.add_page(name)
-    print('created block id', cp.id)
+    logger('created block id', cp.id)
     cp.type = 'collection_view_page'
     cap = client.get_block(cp.id)
     cr = client.create_record('collection', parent=cap, schema=get_default_schema())
@@ -35,28 +40,28 @@ def list_google_keep_json_file(path):
 
 def import_keep_row(client, co, row, jmap, sha256):
     if row.sha256 == sha256:
-        print('skip row properties')
+        logger('skip row properties')
     else:
         # 不能在事务里创建记录和block，有点弱了，
         with client.as_atomic_transaction():
             for key in ['title', 'isTrashed', 'isPinned', 'isArchived']:
-                print('set property', key, '=', jmap[key])
+                logger('set property', key, '=', jmap[key])
                 row.__setattr__(key, jmap[key])
             modify_time = datetime.fromtimestamp(jmap['userEditedTimestampUsec'] / 1000 / 1000)
-            print('set userEditedTimestampUsec', '=', modify_time)
+            logger('set userEditedTimestampUsec', '=', modify_time)
             row.userEditedTimestampUsec = modify_time
             # noinspection PyBroadException
             try:
                 label_list = list(o['name'] for o in jmap['labels'])
             except Exception:
                 label_list = []
-            print('set labels', '=', label_list)
+            logger('set labels', '=', label_list)
             for label in label_list:
                 if create_label(co, label):
-                    print('create label', repr(label))
+                    logger('create label', repr(label))
             if label_list:
                 row.labels = label_list
-            print('set sha256', '=', sha256)
+            logger('set sha256', '=', sha256)
             row.sha256 = sha256
 
 
@@ -65,16 +70,16 @@ def import_text_content(row, jmap):
         return
     text_content = jmap['textContent']
     if not text_content:
-        print('empty text content')
+        logger('empty text content')
         return
     children = row.children
     if len(children) and isinstance(children[0], TextBlock) and children[0].title_plaintext == text_content:
-        print('skip text content')
+        logger('skip text content')
     else:
         if len(children) and isinstance(children[0], TextBlock):
-            print('remove old text block len', len(children[0].title_plaintext))
+            logger('remove old text block len', len(children[0].title_plaintext))
             children[0].remove()
-        print('set text content len', len(text_content))
+        logger('set text content len', len(text_content))
         rb = row.children.add_new(TextBlock, title_plaintext=text_content, language='Plain Text')
         assert rb
         # 已有图片的情况插入的文本移动到开头，用move_to是因为不支持插入指定位置，
@@ -101,33 +106,33 @@ def import_attachments(row, folder, jmap):
         elif file_type == 'audio':
             block_type = AudioBlock
         else:
-            print('skip attachment not supported file_type', file_type, 'file_path', file_path)
+            logger('skip attachment not supported file_type', file_type, 'file_path', file_path)
             continue
         full_path = os.path.join(folder, file_path)
         if not os.path.exists(full_path):
-            print(file_type, 'not found', repr(full_path))
+            logger(file_type, 'not found', repr(full_path))
             img_list = glob.glob1(folder, os.path.splitext(file_path)[0] + '*')
             if len(img_list):
                 full_path = os.path.join(folder, img_list[0])
-                print('real', file_type, 'found', full_path)
+                logger('real', file_type, 'found', full_path)
             else:
-                print('skip attachment not found', file_type, 'file_path', file_path)
+                logger('skip attachment not found', file_type, 'file_path', file_path)
                 continue
         file_name = os.path.split(full_path)[1]
         # 判断如果数据对不上，后续的子节点全部清空，
         while len(children) > real_index \
                 and (not isinstance(children[real_index], block_type)
                      or file_name not in children[index].source):
-            print('remove child', children[real_index])
+            logger('remove child', children[real_index])
             children[real_index].remove()
         if len(children) == real_index:
-            print('create', file_type, full_path)
+            logger('create', file_type, full_path)
             ib = row.children.add_new(block_type)
             assert ib
-            print('upload', file_type, full_path)
+            logger('upload', file_type, full_path)
             ib.upload_file(full_path)
         else:
-            print('skip', file_type, full_path)
+            logger('skip', file_type, full_path)
 
 
 def import_list_content(row, jmap):
@@ -135,7 +140,7 @@ def import_list_content(row, jmap):
     try:
         list_content = jmap['listContent']
     except Exception:
-        print('empty list content')
+        logger('empty list content')
         return
     children = row.children
     index = 0
@@ -150,13 +155,13 @@ def import_list_content(row, jmap):
                 and (not isinstance(children[real_index], TodoBlock)
                      or children[real_index].title != cb['text']
                      or children[real_index].checked != cb['isChecked']):
-            print('remove child', children[real_index])
+            logger('remove child', children[real_index])
             children[real_index].remove()
         if len(children) == real_index:
-            print('create checkbox, title', repr(cb['text']), 'checked', repr(cb['isChecked']))
+            logger('create checkbox, title', repr(cb['text']), 'checked', repr(cb['isChecked']))
             assert children.add_new(TodoBlock, title=cb['text'], checked=cb['isChecked'])
         else:
-            print('skip checkbox, title', repr(cb['text']), 'checked', repr(cb['isChecked']))
+            logger('skip checkbox, title', repr(cb['text']), 'checked', repr(cb['isChecked']))
 
 
 def get_default_schema():
