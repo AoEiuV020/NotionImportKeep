@@ -6,12 +6,12 @@
 ### 运行说明
 
 1. 先安装notion依赖的setuptools否则安装notion会报错，
-1. 安装依赖的非官方api库notion,
+1. 安装依赖的非官方api库notion, 指定版本是因为作者更新了自动重连支持却没更新仓库包(2021.1.27)，
 1. 使用python3运行脚本main.py,
 
 ```shell
 pip3 install setuptools
-pip3 install notion
+pip3 install git+git://github.com/jamalex/notion-py.git@ce7c6e4d8669e49b581efd7345e2f5d624841184
 python3 main.py
 ```
 
