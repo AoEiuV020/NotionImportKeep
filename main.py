@@ -5,6 +5,7 @@ import json
 import os
 
 from notion.client import NotionClient
+from requests.packages.urllib3.util.retry import Retry
 
 import util
 
@@ -25,7 +26,13 @@ print('token is', repr(token))
 print('path is', repr(path))
 folder, list_file = util.list_google_keep_json_file(path)
 print('json file count', repr(len(list_file)))
-client = NotionClient(token_v2=token)
+retry = Retry(
+    5,
+    backoff_factor=0.3,
+    status_forcelist=(500, 501, 502, 503, 504),
+    method_whitelist=("POST", "HEAD", "TRACE", "GET", "PUT", "OPTIONS", "DELETE"),
+)
+client = NotionClient(token_v2=token, client_specified_retry=retry)
 if not block:
     print('create block name', name)
     co = util.create_collection(client, name)
