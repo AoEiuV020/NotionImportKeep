@@ -43,26 +43,36 @@ def list_google_keep_json_file(path):
 def import_keep_row(co, row, jmap, sha256):
     if row.sha256 == sha256:
         logger('skip row properties')
-    else:
-        for key in ['title', 'isTrashed', 'isPinned', 'isArchived']:
-            logger('set property', key, '=', jmap[key])
-            row.__setattr__(key, jmap[key])
-        modify_time = datetime.fromtimestamp(jmap['userEditedTimestampUsec'] / 1000 / 1000)
-        logger('set userEditedTimestampUsec', '=', modify_time)
-        row.userEditedTimestampUsec = modify_time
-        # noinspection PyBroadException
-        try:
-            label_list = list(o['name'] for o in jmap['labels'])
-        except Exception:
-            label_list = []
-        logger('set labels', '=', label_list)
-        for label in label_list:
-            if create_label(co, label):
-                logger('create label', repr(label))
-        if label_list:
-            row.labels = label_list
-        logger('set sha256', '=', sha256)
-        row.sha256 = sha256
+        return
+    if not jmap['title'] and jmap['textContent']:
+        short_content = jmap['textContent'].strip()
+        first_line = short_content.split('\n')[0]
+        new_title = first_line[:30]
+        jmap['title'] = new_title
+        if new_title == short_content:
+            logger('first line move to title', new_title)
+            jmap.pop('textContent')
+        else:
+            logger('first line copy 30 characters to title', new_title)
+    for key in ['title', 'isTrashed', 'isPinned', 'isArchived']:
+        logger('set property', key, '=', jmap[key])
+        row.__setattr__(key, jmap[key])
+    modify_time = datetime.fromtimestamp(jmap['userEditedTimestampUsec'] / 1000 / 1000)
+    logger('set userEditedTimestampUsec', '=', modify_time)
+    row.userEditedTimestampUsec = modify_time
+    # noinspection PyBroadException
+    try:
+        label_list = list(o['name'] for o in jmap['labels'])
+    except Exception:
+        label_list = []
+    logger('set labels', '=', label_list)
+    for label in label_list:
+        if create_label(co, label):
+            logger('create label', repr(label))
+    if label_list:
+        row.labels = label_list
+    logger('set sha256', '=', sha256)
+    row.sha256 = sha256
 
 
 def import_text_content(row, jmap):
