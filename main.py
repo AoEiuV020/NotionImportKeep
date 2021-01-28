@@ -85,4 +85,4 @@ except:
     os._exit(2)
 logger('wait thread')
 executor.shutdown()
-logger('import finish')
+logger('import finish count', repr(len(list_file)))
