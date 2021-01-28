@@ -82,7 +82,7 @@ try:
 except:
     traceback.print_exc()
     logger('import error')
-    os._exit(1)
+    os._exit(2)
 logger('wait thread')
 executor.shutdown()
 logger('import finish')
