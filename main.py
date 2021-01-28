@@ -85,3 +85,4 @@ except:
     os._exit(1)
 logger('wait thread')
 executor.shutdown()
+logger('import finish')
