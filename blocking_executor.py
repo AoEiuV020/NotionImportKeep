@@ -1,4 +1,6 @@
+import os
 import queue
+import traceback
 from concurrent.futures import ThreadPoolExecutor
 
 
@@ -9,8 +11,9 @@ class BlockingExecutor:
         self.finish = False
         self.executor = ThreadPoolExecutor(thread_count, thread_name_prefix='Blocking')
         self.queue = queue.Queue(maxsize=cache_size)
+        self.futures = []
         for i in range(thread_count):
-            self.executor.submit(self.call_function)
+            self.futures.append(self.executor.submit(self.call_function))
 
     def call_function(self):
         # finish之后queue中还有至少一个要处理，
@@ -19,7 +22,11 @@ class BlockingExecutor:
                 (task, args) = self.queue.get(timeout=1)
             except queue.Empty:
                 continue
-            task(*args)
+            try:
+                task(*args)
+            except:
+                traceback.print_exc()
+                os._exit(1)
 
     def submit(self, task, *args):
         self.queue.put((task, args))

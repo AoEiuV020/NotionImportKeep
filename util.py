@@ -6,24 +6,26 @@ from random import choice
 from uuid import uuid1
 
 from notion.block import TextBlock, ImageBlock, TodoBlock, AudioBlock
-from notion.collection import Collection
+
+import_start_time = datetime.now()
 
 
 def logger(*args):
-    print(threading.current_thread().name, *args)
+    print(datetime.now() - import_start_time, threading.current_thread().name, *args)
 
 
-def create_collection(client, name) -> Collection:
+def create_collection(client, name):
     cp = client.current_space.add_page(name)
     logger('created block id', cp.id)
     cp.type = 'collection_view_page'
     cap = client.get_block(cp.id)
+    logger('create record')
     cr = client.create_record('collection', parent=cap, schema=get_default_schema())
     cap.collection = client.get_collection(cr)
     cap.title = name
     cv = cap.views.add_new('board')
     cv.group_by = 'labels'
-    return cap.collection
+    return cap.collection, cp.id
 
 
 def list_google_keep_json_file(path):
@@ -38,31 +40,29 @@ def list_google_keep_json_file(path):
     return folder, glob.glob1(folder, '*.json')
 
 
-def import_keep_row(client, co, row, jmap, sha256):
+def import_keep_row(co, row, jmap, sha256):
     if row.sha256 == sha256:
         logger('skip row properties')
     else:
-        # 不能在事务里创建记录和block，有点弱了，
-        with client.as_atomic_transaction():
-            for key in ['title', 'isTrashed', 'isPinned', 'isArchived']:
-                logger('set property', key, '=', jmap[key])
-                row.__setattr__(key, jmap[key])
-            modify_time = datetime.fromtimestamp(jmap['userEditedTimestampUsec'] / 1000 / 1000)
-            logger('set userEditedTimestampUsec', '=', modify_time)
-            row.userEditedTimestampUsec = modify_time
-            # noinspection PyBroadException
-            try:
-                label_list = list(o['name'] for o in jmap['labels'])
-            except Exception:
-                label_list = []
-            logger('set labels', '=', label_list)
-            for label in label_list:
-                if create_label(co, label):
-                    logger('create label', repr(label))
-            if label_list:
-                row.labels = label_list
-            logger('set sha256', '=', sha256)
-            row.sha256 = sha256
+        for key in ['title', 'isTrashed', 'isPinned', 'isArchived']:
+            logger('set property', key, '=', jmap[key])
+            row.__setattr__(key, jmap[key])
+        modify_time = datetime.fromtimestamp(jmap['userEditedTimestampUsec'] / 1000 / 1000)
+        logger('set userEditedTimestampUsec', '=', modify_time)
+        row.userEditedTimestampUsec = modify_time
+        # noinspection PyBroadException
+        try:
+            label_list = list(o['name'] for o in jmap['labels'])
+        except Exception:
+            label_list = []
+        logger('set labels', '=', label_list)
+        for label in label_list:
+            if create_label(co, label):
+                logger('create label', repr(label))
+        if label_list:
+            row.labels = label_list
+        logger('set sha256', '=', sha256)
+        row.sha256 = sha256
 
 
 def import_text_content(row, jmap):

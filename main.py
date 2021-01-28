@@ -3,6 +3,8 @@
 import hashlib
 import json
 import os
+import threading
+import traceback
 
 from notion.client import NotionClient
 from requests.packages.urllib3.util.retry import Retry
@@ -14,7 +16,7 @@ from util import logger
 token = None
 path = None
 block = None
-thread_count = 4
+thread_count = 30
 name = 'Google Keep'
 if os.path.exists('local.py'):
     exec(open('local.py').read())
@@ -38,13 +40,23 @@ retry = Retry(
 client = NotionClient(token_v2=token, client_specified_retry=retry)
 if not block:
     logger('create block name', name)
-    co = util.create_collection(client, name)
+    (mco, block) = util.create_collection(client, name)
 else:
     logger('get database', block)
-    co = client.get_block(block).collection
+    mco = client.get_block(block).collection
 
 
 def import_keep_row(json_name):
+    co = None
+    try:
+        # noinspection PyUnresolvedReferences
+        co = threading.current_thread().co
+    except:
+        pass
+    if not co:
+        client = NotionClient(token_v2=token, client_specified_retry=retry)
+        co = client.get_block(block).collection
+        threading.current_thread().co = co
     json_content = open(os.path.join(folder, json_name), 'rb').read()
     sha256 = hashlib.sha256(json_content).hexdigest()
     logger('import note from', repr(json_name), 'sha256', repr(sha256))
@@ -56,7 +68,7 @@ def import_keep_row(json_name):
     else:
         logger('create row')
         row = co.add_row()
-    util.import_keep_row(client, co, row, jmap, sha256)
+    util.import_keep_row(co, row, jmap, sha256)
     util.import_text_content(row, jmap)
     util.import_attachments(row, folder, jmap)
     util.import_list_content(row, jmap)
@@ -64,6 +76,12 @@ def import_keep_row(json_name):
 
 
 executor = BlockingExecutor(thread_count, 1)
-for json_name in list_file:
-    executor.submit(import_keep_row, json_name)
+try:
+    for json_name in list_file:
+        executor.submit(import_keep_row, json_name)
+except:
+    traceback.print_exc()
+    logger('import error')
+    os._exit(1)
+logger('wait thread')
 executor.shutdown()
