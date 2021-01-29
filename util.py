@@ -44,7 +44,7 @@ def import_keep_row(co, row, jmap, sha256):
     if row.sha256 == sha256:
         logger('skip row properties')
         return
-    if not jmap['title'] and jmap['textContent']:
+    if not jmap['title'] and 'textContent' in jmap and jmap['textContent']:
         short_content = jmap['textContent'].strip()
         first_line = short_content.split('\n')[0]
         new_title = first_line[:30]
